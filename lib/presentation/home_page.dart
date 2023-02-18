@@ -8,7 +8,7 @@ class HomePage extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-          scaffoldBackgroundColor: Color.fromARGB(255, 255, 255, 255)),
+          scaffoldBackgroundColor: const Color.fromARGB(255, 255, 255, 255)),
       home: Scaffold(
         body: Column(
           children: [],
