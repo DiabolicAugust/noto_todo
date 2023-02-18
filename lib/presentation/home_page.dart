@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:noto_todo/constants/strings.dart';
 import 'package:noto_todo/domain/todo.dart';
 
 class HomePage extends StatelessWidget {
@@ -84,80 +85,94 @@ class _BuildTodoAddingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: () => showDialog(
-          context: context,
-          builder: (context) {
-            TextEditingController _controller = TextEditingController();
-            return AlertDialog(
-              title: const Text(
-                'Add new todo',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Cancel',
-                    style: Theme.of(context).textTheme.displaySmall!.copyWith(
-                          fontSize: 15.sp,
-                        ),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 40.0),
+      child: SizedBox(
+        height: 50.h,
+        child: TextButton(
+          onPressed: () => showDialog(
+              context: context,
+              builder: (context) {
+                TextEditingController _controller = TextEditingController();
+                return _buildDialog(context, _controller);
+              }),
+          child: Text(
+            'Add a new task',
+            style: TextStyle(
+                color: Colors.black,
+                fontSize: 25.sp,
+                fontWeight: FontWeight.w300),
+          ),
+        ),
+      ),
+    );
+  }
+
+  AlertDialog _buildDialog(
+      BuildContext context, TextEditingController _controller) {
+    return AlertDialog(
+      title: const Text(
+        'Add new todo',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: Theme.of(context).textTheme.displaySmall!.copyWith(
+                  fontSize: 15.sp,
+                ),
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            final newTodo = Todo(
+                title: _controller.text,
+                dateOfCreation: DateTime.now().toString(),
+                isDone: false);
+            List<Todo>? listOfTodos =
+                Hive.box<List>(ConstantStrings.todosBoxName).get(
+                    ConstantStrings.todosBoxKey,
+                    defaultValue: <Todo>[])!.cast<Todo>();
+            listOfTodos.add(newTodo);
+            await Hive.box<List>(ConstantStrings.todosBoxName)
+                .put(ConstantStrings.todosBoxKey, listOfTodos);
+            Navigator.pop(context);
+          },
+          child: Text(
+            'Add',
+            style: Theme.of(context).textTheme.displayLarge!.copyWith(
+                  fontSize: 15.sp,
+                ),
+          ),
+        ),
+      ],
+      titleTextStyle:
+          Theme.of(context).textTheme.displayLarge!.copyWith(fontSize: 25.sp),
+      contentPadding: EdgeInsets.symmetric(
+        vertical: 20.h,
+        horizontal: 20.w,
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            controller: _controller,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(
+                  Radius.circular(
+                    8.r,
                   ),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final newTodo = Todo(
-                        title: _controller.text,
-                        dateOfCreation: DateTime.now().toString(),
-                        isDone: false);
-                    List<Todo>? listOfTodos = Hive.box<List>('Todos')
-                        .get('todos_key', defaultValue: <Todo>[])!.cast<Todo>();
-                    listOfTodos!.add(newTodo);
-                    await Hive.box<List>('Todos')
-                        .put('todos_key', listOfTodos);
-                    Navigator.pop(context);
-                  },
-                  child: Text(
-                    'Add',
-                    style: Theme.of(context).textTheme.displayLarge!.copyWith(
-                          fontSize: 15.sp,
-                        ),
-                  ),
+                borderSide: BorderSide(
+                  width: 5.w,
                 ),
-              ],
-              titleTextStyle: Theme.of(context)
-                  .textTheme
-                  .displayLarge!
-                  .copyWith(fontSize: 25.sp),
-              contentPadding: EdgeInsets.symmetric(
-                vertical: 20.h,
-                horizontal: 20.w,
               ),
-              content: Column(
-                children: [
-                  TextFormField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(
-                            8.r,
-                          ),
-                        ),
-                        borderSide: BorderSide(
-                          width: 5.w,
-                        ),
-                      ),
-                      hintText: 'Enter todo title',
-                    ),
-                  )
-                ],
-              ),
-            );
-          }),
-      child: Text(
-        'Add a new task',
-        style: TextStyle(
-            color: Colors.black, fontSize: 25.sp, fontWeight: FontWeight.w300),
+              hintText: 'Enter todo title',
+            ),
+          )
+        ],
       ),
     );
   }
@@ -169,23 +184,41 @@ class _BuildTodoList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Box<List>>(
-      valueListenable: Hive.box<List>('Todos').listenable(keys: ['todos_key']),
+      valueListenable: Hive.box<List>(ConstantStrings.todosBoxName)
+          .listenable(keys: [ConstantStrings.todosBoxKey]),
       builder: (context, Box<List> box, _) {
-        final List<Todo> todos = box.get('todos_key', defaultValue: <Todo>[])!.cast<Todo>();
-        return SizedBox(
-          height: 500.h,
+        final List<Todo> todos = box.get(ConstantStrings.todosBoxKey,
+            defaultValue: <Todo>[])!.cast<Todo>();
+        return Expanded(
           child: ListView.builder(
             shrinkWrap: true,
             itemBuilder: (context, index) => Padding(
               padding: EdgeInsets.symmetric(vertical: 16.0.h),
               child: Center(
-                child: Text(
-                  todos[index].title,
-                  style: Theme.of(context).textTheme.displaySmall,
+                child: GestureDetector(
+                  onTap: () async {
+                    todos[index].isDone = !todos[index].isDone;
+                    await box.put(ConstantStrings.todosBoxKey, todos);
+                  },
+                  child: Text(
+                    todos[index].title,
+                    style: todos[index].isDone
+                        ? Theme.of(context).textTheme.displayMedium!.copyWith(
+                            fontSize: Theme.of(context)
+                                .textTheme
+                                .displaySmall!
+                                .fontSize)
+                        : Theme.of(context).textTheme.displaySmall,
+                  ),
                 ),
               ),
             ),
-            itemCount: todos!.length,
+            itemCount: todos.where((element) {
+              final parsedInfo = DateTime.parse(element.dateOfCreation);
+              return parsedInfo.month == DateTime.now().month &&
+                  parsedInfo.day == DateTime.now().day &&
+                  parsedInfo.year == DateTime.now().year;
+            }).length,
           ),
         );
       },
