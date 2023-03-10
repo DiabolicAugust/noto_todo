@@ -1,9 +1,14 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:noto_todo/constants/strings.dart';
 import 'package:noto_todo/domain/todo.dart';
+import 'package:noto_todo/presentation/widgets/add_todo_alertdialog.dart';
+import 'package:noto_todo/service/navigation_notifier.dart';
+import 'package:provider/provider.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -60,22 +65,99 @@ class HomePage extends StatelessWidget {
         ),
         home: Builder(builder: (context) {
           return Scaffold(
-            body: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32.w),
-              child: Column(
-                children: [
-                  const _BuildAppbarIcons(),
-                  24.verticalSpace,
-                  const _BuildPhrase(),
-                  59.verticalSpace,
-                  const _BuildTodoList(),
-                  const _BuildTodoAddingButton()
-                ],
-              ),
-            ),
+            body: _BuildContentAnimation(),
           );
         }),
       ),
+    );
+  }
+}
+
+class _BuildContentAnimation extends StatefulWidget {
+  const _BuildContentAnimation({
+    super.key,
+  });
+
+  @override
+  State<_BuildContentAnimation> createState() => _BuildContentAnimationState();
+}
+
+class _BuildContentAnimationState extends State<_BuildContentAnimation>
+    with TickerProviderStateMixin {
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider<NavigationNotifier>(
+        create: (context) => NavigationNotifier(ticker: this),
+        child: Builder(
+          builder: (context) {
+            return Stack(
+              children: [
+                Container(
+                  color: Colors.black,
+                  height: 812.h,
+                  width: 375.w,
+                  child: Column(
+                    children: [],
+                  ),
+                ),
+                Positioned(
+                  child: Consumer<NavigationNotifier>(
+                      builder: (context, notifier, _) {
+                    return TweenAnimationBuilder(
+                      tween: Tween<double>(begin:0, end: notifier.scale),
+                      duration: Duration(milliseconds: 500),
+                      builder: (_, value, __) {
+                        return Transform(
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, 0.001)
+                            ..setEntry(0, 3, 200 * value)
+                            ..rotateY((pi / 6) * value),
+                          child: Container(
+                            height: 812.h,
+                            width: 375.w,
+                            color: Colors.white,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 32.w),
+                              child: const _BuildContent(),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+                GestureDetector(
+                  onHorizontalDragUpdate: (e) {
+                    if(e.delta.dx > 0){
+                      Provider.of<NavigationNotifier>(context, listen: false).updateDrawerState(true);
+                    } else{
+                      Provider.of<NavigationNotifier>(context, listen: false).updateDrawerState(false);
+                    }
+                  },
+                )
+              ],
+            );
+          }
+        ));
+  }
+}
+
+class _BuildContent extends StatelessWidget {
+  const _BuildContent({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _BuildAppbarIcons(),
+        24.verticalSpace,
+        const _BuildPhrase(),
+        59.verticalSpace,
+        const _BuildTodoList(),
+        const _BuildTodoAddingButton()
+      ],
     );
   }
 }
@@ -86,18 +168,18 @@ class _BuildTodoAddingButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 40.0),
+      padding: EdgeInsets.symmetric(vertical: 40.0.h),
       child: SizedBox(
         height: 50.h,
         child: TextButton(
           onPressed: () => showDialog(
               context: context,
               builder: (context) {
-                TextEditingController _controller = TextEditingController();
-                return _buildDialog(context, _controller);
+                TextEditingController controller = TextEditingController();
+                return BuildAddTodoDialog(controller: controller);
               }),
           child: Text(
-            'Add a new task',
+            ConstantStrings.addNewTask,
             style: TextStyle(
                 color: Colors.black,
                 fontSize: 25.sp,
@@ -107,79 +189,23 @@ class _BuildTodoAddingButton extends StatelessWidget {
       ),
     );
   }
-
-  AlertDialog _buildDialog(
-      BuildContext context, TextEditingController _controller) {
-    return AlertDialog(
-      title: const Text(
-        'Add new todo',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            'Cancel',
-            style: Theme.of(context).textTheme.displaySmall!.copyWith(
-                  fontSize: 15.sp,
-                ),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            final newTodo = Todo(
-                title: _controller.text,
-                dateOfCreation: DateTime.now().toString(),
-                isDone: false);
-            List<Todo>? listOfTodos =
-                Hive.box<List>(ConstantStrings.todosBoxName).get(
-                    ConstantStrings.todosBoxKey,
-                    defaultValue: <Todo>[])!.cast<Todo>();
-            listOfTodos.add(newTodo);
-            await Hive.box<List>(ConstantStrings.todosBoxName)
-                .put(ConstantStrings.todosBoxKey, listOfTodos);
-            Navigator.pop(context);
-          },
-          child: Text(
-            'Add',
-            style: Theme.of(context).textTheme.displayLarge!.copyWith(
-                  fontSize: 15.sp,
-                ),
-          ),
-        ),
-      ],
-      titleTextStyle:
-          Theme.of(context).textTheme.displayLarge!.copyWith(fontSize: 25.sp),
-      contentPadding: EdgeInsets.symmetric(
-        vertical: 20.h,
-        horizontal: 20.w,
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextFormField(
-            controller: _controller,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(
-                  Radius.circular(
-                    8.r,
-                  ),
-                ),
-                borderSide: BorderSide(
-                  width: 5.w,
-                ),
-              ),
-              hintText: 'Enter todo title',
-            ),
-          )
-        ],
-      ),
-    );
-  }
 }
 
 class _BuildTodoList extends StatelessWidget {
   const _BuildTodoList();
+
+  List<Todo> getTodos(Box box) {
+    return box
+        .get(ConstantStrings.todosBoxKey, defaultValue: <Todo>[])!
+        .cast<Todo>()
+        .where((element) {
+          final parsedInfo = DateTime.parse(element.dateOfCreation);
+          return parsedInfo.month == DateTime.now().month &&
+              parsedInfo.day == DateTime.now().day &&
+              parsedInfo.year == DateTime.now().year;
+        })
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,8 +213,8 @@ class _BuildTodoList extends StatelessWidget {
       valueListenable: Hive.box<List>(ConstantStrings.todosBoxName)
           .listenable(keys: [ConstantStrings.todosBoxKey]),
       builder: (context, Box<List> box, _) {
-        final List<Todo> todos = box.get(ConstantStrings.todosBoxKey,
-            defaultValue: <Todo>[])!.cast<Todo>();
+        final List<Todo> todos = getTodos(box);
+
         return Expanded(
           child: ListView.builder(
             shrinkWrap: true,
@@ -213,12 +239,7 @@ class _BuildTodoList extends StatelessWidget {
                 ),
               ),
             ),
-            itemCount: todos.where((element) {
-              final parsedInfo = DateTime.parse(element.dateOfCreation);
-              return parsedInfo.month == DateTime.now().month &&
-                  parsedInfo.day == DateTime.now().day &&
-                  parsedInfo.year == DateTime.now().year;
-            }).length,
+            itemCount: todos.length,
           ),
         );
       },
@@ -238,14 +259,14 @@ class _BuildPhrase extends StatelessWidget {
         SizedBox(
           height: 44.h,
           child: Text(
-            'TODAY',
+            ConstantStrings.today,
             style: Theme.of(context).textTheme.displayLarge,
           ),
         ),
         SizedBox(
           height: 33.h,
           child: Text(
-            'TOMORROW',
+            ConstantStrings.tomorrow,
             style: Theme.of(context).textTheme.displayMedium,
           ),
         ),
@@ -260,16 +281,17 @@ class _BuildAppbarIcons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SvgPicture.asset(
-            'assets/moon.svg',
-          ),
-          SvgPicture.asset(
-            'assets/cofe.svg',
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.only(top: 15.0.h),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            SvgPicture.asset(
+              'assets/moon.svg',
+            ),
+
+          ],
+        ),
       ),
     );
   }
